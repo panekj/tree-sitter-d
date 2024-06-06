@@ -1,4 +1,4 @@
-VERSION := $(shell cat VERSION)
+VERSION := 0.0.1
 
 LANGUAGE_NAME := tree-sitter-d
 
@@ -27,11 +27,13 @@ INCLUDEDIR ?= $(PREFIX)/include
 LIBDIR ?= $(PREFIX)/lib
 PCLIBDIR ?= $(LIBDIR)/pkgconfig
 
-# object files
-OBJS := $(patsubst %.c,%.o,$(wildcard $(SRC_DIR)/*.c))
+# source/object files
+PARSER := $(SRC_DIR)/parser.c
+EXTRAS := $(filter-out $(PARSER),$(wildcard $(SRC_DIR)/*.c))
+OBJS := $(patsubst %.c,%.o,$(PARSER) $(EXTRAS))
 
 # flags
-ARFLAGS := rcs
+ARFLAGS ?= rcs
 override CFLAGS += -I$(SRC_DIR) -std=c11 -fPIC
 
 # OS-specific bits
@@ -81,8 +83,8 @@ $(LANGUAGE_NAME).pc: bindings/c/$(LANGUAGE_NAME).pc.in
 		-e 's|=$(PREFIX)|=$${prefix}|' \
 		-e 's|@PREFIX@|$(PREFIX)|' $< > $@
 
-$(SRC_DIR)/parser.c: grammar.js
-	$(TS) generate --no-bindings
+$(PARSER): $(SRC_DIR)/grammar.json
+	$(TS) generate --no-bindings $^
 
 install: all
 	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter '$(DESTDIR)$(PCLIBDIR)' '$(DESTDIR)$(LIBDIR)'
@@ -107,14 +109,4 @@ clean:
 test:
 	$(TS) test
 
-version: pyproject_version cargo_version
-
-pyproject_version:
-	sed -e 's|^version = ".*"|version = "$(VERSION)"|' < pyproject.toml > pyproject.toml.new
-	mv pyproject.toml.new pyproject.toml
-
-cargo_version:
-	sed -e 's|^version = ".*"|version = "$(VERSION)"|' < Cargo.toml > Cargo.toml.new
-	mv Cargo.toml.new Cargo.toml
-
-.PHONY: all install uninstall clean test version pyproject_version cargo_version
+.PHONY: all install uninstall clean test
